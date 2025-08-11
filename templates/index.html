@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demo Lokasi (Tanpa DB)</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #0f172a; color: #e2e8f0; }
+      .card { max-width: 680px; margin: 0 auto; background: #111827; padding: 24px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+      h1 { font-size: 24px; margin: 0 0 12px; }
+      p { opacity: .9; }
+      button { padding: 12px 16px; font-weight: 600; border-radius: 10px; border: none; cursor: pointer; }
+      .primary { background: #60a5fa; color: #0b1220; }
+      .secondary { background: #334155; color: #e2e8f0; }
+      .row { display: flex; gap: 8px; margin-top: 16px; }
+      .muted { font-size: 14px; opacity: .8; margin-top: 10px; }
+      .log { margin-top: 16px; white-space: pre-wrap; background: #0b1220; padding: 12px; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      a { color: #93c5fd; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Bagikan Lokasi Anda (dengan izin)</h1>
+      <p>Klik tombol di bawah. Browser akan meminta izin terlebih dahulu. Jika tidak disetujui, server tidak menerima apa pun.</p>
+      <div class="row">
+        <button class="primary" onclick="shareLocation()">Share my location</button>
+        <button class="secondary" onclick="testNoGPS()">Saya tidak setuju</button>
+      </div>
+      <p class="muted">Privasi: Hanya lat, lon, akurasi, IP & user‑agent yang dikirim ke server **setelah** Anda setuju. Data tidak disimpan ke database; hanya ada sementara di memori server.</p>
+      <div id="out" class="log"></div>
+      <p class="muted">Halaman admin: <code>/admin?token=YOUR_TOKEN</code> (set di <code>.env</code>).</p>
+    </div>
+
+    <script>
+      const out = document.getElementById('out');
+      function log(msg){ out.textContent += `\n${msg}`; }
+
+      async function postJSON(url, payload){
+        const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        if(!r.ok) throw new Error('Server error ' + r.status);
+        return r.json();
+      }
+
+      function shareLocation(){
+        if(!('geolocation' in navigator)){
+          log('Geolocation tidak didukung browser ini.');
+          return;
+        }
+        log('Meminta izin lokasi…');
+        navigator.geolocation.getCurrentPosition(async (pos)=>{
+          const { latitude, longitude, accuracy } = pos.coords;
+          log(`Lokasi didapat: lat=${latitude}, lon=${longitude}, akurasi≈${accuracy}m`);
+          try{
+            const res = await postJSON('/api/loc', { lat: latitude, lon: longitude, accuracy });
+            if(res.ok){
+              log('✔️ Terkirim ke server. Cek /admin untuk log.');
+              log(`Buka peta: https://www.google.com/maps?q=${latitude},${longitude}`);
+            }
+          }catch(err){
+            log('Gagal kirim ke server: ' + err.message);
+          }
+        }, (err)=>{
+          log('Izin ditolak/galat: ' + err.message);
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+      }
+
+      function testNoGPS(){
+        log('Anda memilih tidak membagikan lokasi. Tidak ada data yang dikirim.');
+      }
+    </script>
+  </body>
+</html>
